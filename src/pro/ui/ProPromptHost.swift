@@ -63,7 +63,8 @@ class ProPromptHost {
         let state = ProTransitionManager.shared.state
         return ProPromptPresentation.Context(
             sessionAvailable: sessionIsAvailable,
-            isPro: LicenseManager.shared.state == .pro,
+            // A local full-feature build is entitled like Pro: no purchase prompt may be shown.
+            isPro: LicenseManager.shared.state.isFullyEntitled,
             switcherActive: SwitcherSession.isActive,
             onboarding: state.onboardingInProgress || LicenseManager.shared.state == .trialNotStarted,
             competingUI: ContextMenuEvents.isMenuOpen || ProPromptPopover.isShowing(excluding: popover) ||

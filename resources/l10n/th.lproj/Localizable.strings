@@ -361,3 +361,9 @@
 "Your feedback will be submitted as a public GitHub issue." = "คำติชมของคุณจะถูกส่งเป็นปัญหาสาธารณะบน GitHub";
 "Your Pro trial starts when AltTab is ready" = "ช่วงทดลองใช้ Pro จะเริ่มเมื่อ AltTab พร้อมใช้งาน";
 "Your settings reset every time AltTab restarts." = "การตั้งค่าของคุณจะถูกรีเซ็ตทุกครั้งที่ AltTab เริ่มทำงานใหม่";
+"Local build" = "บิลด์ในเครื่อง";
+"All features enabled" = "เปิดใช้ฟีเจอร์ทั้งหมดแล้ว";
+"Nothing to purchase or activate here: this build includes every feature." = "ไม่มีอะไรให้ซื้อหรือเปิดใช้งานที่นี่: บิลด์นี้มีฟีเจอร์ครบทั้งหมด";
+"Official updates are unavailable in this local build." = "ไม่มีการอัปเดตอย่างเป็นทางการในบิลด์ในเครื่องนี้";
+"Updates unavailable in local build" = "ไม่มีการอัปเดตในบิลด์ในเครื่อง";
+"This build doesn't use license keys." = "บิลด์นี้ไม่ใช้คีย์ไลเซนส์";

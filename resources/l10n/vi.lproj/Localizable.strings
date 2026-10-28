@@ -361,3 +361,9 @@
 "Your feedback will be submitted as a public GitHub issue." = "Phản hồi của bạn sẽ được gửi dưới dạng GitHub Issue công khai.";
 "Your Pro trial starts when AltTab is ready" = "Bản dùng thử Pro bắt đầu khi AltTab sẵn sàng";
 "Your settings reset every time AltTab restarts." = "Cài đặt của bạn bị đặt lại mỗi khi AltTab khởi động lại.";
+"Local build" = "Bản dựng cục bộ";
+"All features enabled" = "Tất cả tính năng đã bật";
+"Nothing to purchase or activate here: this build includes every feature." = "Không có gì để mua hay kích hoạt ở đây: bản dựng này bao gồm mọi tính năng.";
+"Official updates are unavailable in this local build." = "Các bản cập nhật chính thức không khả dụng trong bản dựng cục bộ này.";
+"Updates unavailable in local build" = "Cập nhật không khả dụng trong bản dựng cục bộ";
+"This build doesn't use license keys." = "Bản dựng này không dùng khóa giấy phép.";

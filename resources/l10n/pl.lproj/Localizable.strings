@@ -361,3 +361,9 @@
 "Your feedback will be submitted as a public GitHub issue." = "Twoja opinia zostanie wysłana jako publiczne zgłoszenie na GitHub.";
 "Your Pro trial starts when AltTab is ready" = "Okres próbny Pro rozpocznie się, gdy AltTab będzie gotowy";
 "Your settings reset every time AltTab restarts." = "Twoje ustawienia są resetowane przy każdym ponownym uruchomieniu AltTab.";
+"Local build" = "Kompilacja lokalna";
+"All features enabled" = "Wszystkie funkcje włączone";
+"Nothing to purchase or activate here: this build includes every feature." = "Nie ma tu nic do kupienia ani aktywowania: ta kompilacja zawiera wszystkie funkcje.";
+"Official updates are unavailable in this local build." = "Oficjalne aktualizacje są niedostępne w tej lokalnej kompilacji.";
+"Updates unavailable in local build" = "Aktualizacje niedostępne w lokalnej kompilacji";
+"This build doesn't use license keys." = "Ta kompilacja nie używa kluczy licencji.";

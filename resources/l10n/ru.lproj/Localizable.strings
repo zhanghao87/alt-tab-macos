@@ -361,3 +361,9 @@
 "Your feedback will be submitted as a public GitHub issue." = "Ваш отзыв будет отправлен как публичный issue на GitHub.";
 "Your Pro trial starts when AltTab is ready" = "Пробный период Pro начнётся, когда AltTab будет готов к работе";
 "Your settings reset every time AltTab restarts." = "Ваши настройки сбрасываются при каждом перезапуске AltTab.";
+"Local build" = "Локальная сборка";
+"All features enabled" = "Все функции включены";
+"Nothing to purchase or activate here: this build includes every feature." = "Здесь нечего покупать или активировать: эта сборка включает все функции.";
+"Official updates are unavailable in this local build." = "Официальные обновления недоступны в этой локальной сборке.";
+"Updates unavailable in local build" = "Обновления недоступны в локальной сборке";
+"This build doesn't use license keys." = "Эта сборка не использует лицензионные ключи.";

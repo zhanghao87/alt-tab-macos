@@ -6,6 +6,8 @@ func syncLicenseCookie(state: LicenseState) {
     #if DEBUG
     if QaLifecycle.enabled { return }
     #endif
+    // Local builds have no official update tier and must not publish a licensing cookie.
+    guard !LicenseManager.shared.localFeaturesEnabled else { return }
     guard let host = URL(string: Endpoints.website)?.host else { return }
     let value: String
     switch state {

@@ -283,11 +283,15 @@ extension NSSearchField {
         sendsSearchStringImmediately = true
         sendsWholeSearchString = true
         bezelStyle = .roundedBezel
+        #if LEGACY_MACOS_SDK
+        if #available(macOS 13.0, *) { controlSize = .large }
+        #else
         if #available(macOS 26.0, *) {
             controlSize = .extraLarge
         } else if #available(macOS 13.0, *) {
             controlSize = .large
         }
+        #endif
     }
 }
 

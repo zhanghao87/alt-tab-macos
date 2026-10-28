@@ -361,3 +361,9 @@
 "Your feedback will be submitted as a public GitHub issue." = "您的意見將會以公開的 GitHub issue 形式提交。";
 "Your Pro trial starts when AltTab is ready" = "AltTab 準備就緒後，Pro 試用期即開始";
 "Your settings reset every time AltTab restarts." = "每次重新啟動 AltTab 時，你的設定都會重設。";
+"Local build" = "本機版本";
+"All features enabled" = "已啟用所有功能";
+"Nothing to purchase or activate here: this build includes every feature." = "此處無需購買或啟用：此版本已包含所有功能。";
+"Official updates are unavailable in this local build." = "此本機版本無法使用官方更新。";
+"Updates unavailable in local build" = "本機版本無法使用更新";
+"This build doesn't use license keys." = "此版本不使用授權碼。";

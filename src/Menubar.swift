@@ -8,6 +8,7 @@ class Menubar {
     private static var upgradeToProMenuItem: NSMenuItem!
     private static var supportProjectMenuItem: NSMenuItem!
     private static var myAccountMenuItem: NSMenuItem!
+    private static var checkForUpdatesMenuItem: NSMenuItem!
     private static let menuDelegate = MenubarMenuDelegate()
     private static var isVisibleObserver: NSKeyValueObservation?
 
@@ -37,11 +38,23 @@ class Menubar {
         addMenuItem(NSLocalizedString("Show", comment: "Menubar option"), #selector(App.showUiFromShortcut0), "", "eye", nil, App.self)
         menu.addItem(NSMenuItem.separator())
         addMenuItem(NSLocalizedString("Settings…", comment: "Menubar option"), #selector(App.showSettingsWindow), ",", "gear", nil, App.self)
-        addMenuItem(NSLocalizedString("Check for updates…", comment: "Menubar option"), #selector(App.checkForUpdatesNow), "", "checkmark.arrow.trianglehead.clockwise", nil, App.self)
+        checkForUpdatesMenuItem = addMenuItem(NSLocalizedString("Check for updates…", comment: "Menubar option"), #selector(App.checkForUpdatesNow), "", "checkmark.arrow.trianglehead.clockwise", nil, App.self)
+        if LicenseManager.shared.localFeaturesEnabled {
+            // No updater exists in a local build, so the item cannot do anything. Say why instead of
+            // offering a button that silently fails.
+            checkForUpdatesMenuItem.title = NSLocalizedString("Updates unavailable in local build",
+                comment: "Menubar option, disabled. This is a local source build, not a purchased Pro license.")
+            checkForUpdatesMenuItem.isEnabled = false
+            checkForUpdatesMenuItem.action = nil
+        }
         addMenuItem(NSLocalizedString("Check permissions…", comment: "Menubar option"), #selector(App.checkPermissions), "", "hand.raised", nil, App.self)
         menu.addItem(NSMenuItem.separator())
         addMenuItem(String(format: NSLocalizedString("About %@", comment: "Menubar option. %@ is AltTab"), App.name), #selector(App.showAboutWindow), "", "info.circle", nil, App.self)
-        addMenuItem(NSLocalizedString("Debug tools", comment: "Menubar option"), #selector(App.showDebugWindow), "", "scope", nil, App.self)
+        if !LicenseManager.shared.localFeaturesEnabled {
+            // The debug window is a QA surface; a daily-use local build has no business showing it.
+            // The opt-in `--qa-*` CLI stays compiled for verification.
+            addMenuItem(NSLocalizedString("Debug tools", comment: "Menubar option"), #selector(App.showDebugWindow), "", "scope", nil, App.self)
+        }
         addMenuItem(NSLocalizedString("Send feedback", comment: "Menubar option") + "…", #selector(App.showFeedbackPanel), "", "text.bubble", nil, App.self)
         upgradeToProMenuItem = addMenuItem(NSLocalizedString("Get Pro", comment: "Menubar option"), App.upgradeToProAction, "", "star.fill", nil, App.self)
         upgradeToProMenuItem.view = UpgradeMenuItemView()
@@ -105,8 +118,15 @@ class Menubar {
             toggleUpgradeMenuItem(true)
             supportProjectMenuItem.isHidden = false
             myAccountMenuItem.isHidden = true
+        case .local:
+            // Nothing was purchased and there is no account: no "Get Pro", no "My Account".
+            // The support link stays: it points at the upstream project, not at a checkout.
+            toggleUpgradeMenuItem(false)
+            supportProjectMenuItem.isHidden = false
+            myAccountMenuItem.isHidden = true
         }
         if case .pro = state { return }
+        if case .local = state { return }
         (upgradeToProMenuItem.view as? UpgradeMenuItemView)?.updateContent(state)
     }
 
@@ -226,6 +246,8 @@ class Menubar {
     static private func updateBadgeDotOverlay() {
         badgeDotLayer?.removeFromSuperlayer()
         badgeDotLayer = nil
+        // The badge dot is a reminder to buy Pro; a local build has nothing to buy.
+        guard !LicenseManager.shared.localFeaturesEnabled else { return }
         guard ProTransitionManager.shared.shouldShowBadgeDot, let button = statusItem?.button else { return }
         button.wantsLayer = true
         guard let buttonLayer = button.layer else { return }

@@ -4,7 +4,7 @@ class UpgradeTab {
     private static var introduction: MascotMessageView!
     private static var journey: ProJourneyView!
     private static var footer: NSView!
-    private static var proManageTable: TableGroupView!
+    private static var proManageTable: TableGroupView?
     private static var isActivating = false
     private static var isInitialized = false
 
@@ -25,6 +25,13 @@ class UpgradeTab {
     }
 
     private static func makeView() -> NSView {
+        if LicenseManager.shared.localFeaturesEnabled {
+            let stack = NSStackView(views: [makeHeaderStrip(), makeLocalNotice()])
+            stack.orientation = .vertical
+            stack.alignment = .centerX
+            stack.spacing = 20
+            return stack
+        }
         let header = makeHeaderStrip()
         journey = ProJourneyView(width: SettingsWindow.contentWidth - 2 * TableGroupView.padding)
         journey.spacing = 8
@@ -33,12 +40,22 @@ class UpgradeTab {
         }
         footer = journey.makeFooter(actions: purchase, leading: makeActivateLinkRow())
         proManageTable = makeProManageTable()
-        let stack = NSStackView(views: [header, journey, footer, proManageTable])
+        let stack = NSStackView(views: [header, journey, footer, proManageTable!])
         stack.orientation = .vertical
         stack.alignment = .centerX
         stack.spacing = 8
         stack.setCustomSpacing(20, after: journey)
         return stack
+    }
+
+    /// The local build's replacement for the purchase/activation page: a plain statement of what
+    /// this build is. No purchase, no license key, no account.
+    private static func makeLocalNotice() -> NSView {
+        let message = TableGroupView.makeText(NSLocalizedString(
+            "Nothing to purchase or activate here: this build includes every feature.",
+            comment: "Upgrade tab notice. This is a local source build with all features, not a purchased license."))
+        message.textColor = .secondaryLabelColor
+        return message
     }
 
     private static func makeActivateLinkRow() -> NSStackView {
@@ -91,15 +108,19 @@ class UpgradeTab {
     static func refreshStatus() {
         SettingsWindow.shared?.refreshUpgradeButton()
         guard isInitialized else { return }
-        journey.refresh()
         ProJourneyView.refreshIntroduction(introduction)
-        switch LicenseManager.shared.state {
+        let state = LicenseManager.shared.state
+        guard !LicenseManager.shared.localFeaturesEnabled else { return }
+        journey.refresh()
+        switch state {
         case .pro:
             showSections(journey: false, licenseLinks: false)
         case .trialNotStarted:
             showSections(journey: false, licenseLinks: true)
         case .trial, .proExpired, .trialExpired:
             showSections(journey: true, licenseLinks: true)
+        case .local:
+            return
         }
     }
 
@@ -108,14 +129,19 @@ class UpgradeTab {
         journey.isHidden = !showsJourney
         journey.setPurchaseHidden(!showsJourney)
         footer.isHidden = !showsJourney && !licenseLinks
-        proManageTable.isHidden = licenseLinks
+        proManageTable?.isHidden = licenseLinks
     }
 
+
     static func openAccountPage() {
+        // A local build has no account: there is nothing to manage or to look up.
+        guard !LicenseManager.shared.localFeaturesEnabled else { return }
         NSWorkspace.shared.open(URL(string: Endpoints.accountUrl)!)
     }
 
     static func presentActivationSheet(prefilledKey: String = "", autoFailedHint: Bool = false) {
+        // A local build has no license to activate.
+        guard !LicenseManager.shared.localFeaturesEnabled else { return }
         let alert = NSAlert()
         alert.alertStyle = autoFailedHint ? .warning : .informational
         alert.messageText = autoFailedHint
@@ -159,6 +185,7 @@ class UpgradeTab {
     }
 
     private static func activateLicense(_ key: String) {
+        guard !LicenseManager.shared.localFeaturesEnabled else { return }
         guard !key.isEmpty, !isActivating else { return }
         isActivating = true
         LicenseManager.shared.activate(key) { result in
@@ -234,6 +261,8 @@ class UpgradeTab {
     }
 
     private static func deactivateLicense() {
+        // A local build has no license to deactivate.
+        guard !LicenseManager.shared.localFeaturesEnabled else { return }
         LicenseManager.shared.deactivate { result in
             switch result {
             case .success:

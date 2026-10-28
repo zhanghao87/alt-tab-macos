@@ -21,7 +21,12 @@ class GeneralTab {
             ])
         let language = TableGroupView.Row(leftTitle: NSLocalizedString("Language", comment: ""),
             rightViews: [LabelAndControl.makeDropdown("language", LanguagePreference.allCases, extraAction: setLanguageCallback)])
-        updatesPolicyDropdown = LabelAndControl.makeDropdown("updatePolicy", UpdatePolicyPreference.allCases)
+        // A local build has no official updater: the controls are replaced by a plain statement
+        // rather than left there doing nothing.
+        let isLocalBuild = LicenseManager.shared.localFeaturesEnabled
+        if !isLocalBuild {
+            updatesPolicyDropdown = LabelAndControl.makeDropdown("updatePolicy", UpdatePolicyPreference.allCases)
+        }
         let checkForUpdates = NSButton(title: NSLocalizedString("Check for updates now…", comment: ""), target: nil, action: nil)
         checkForUpdates.onAction = { control in checkForUpdatesNow(control) }
         crashPolicyDropdown = LabelAndControl.makeDropdown("crashPolicy", CrashPolicyPreference.allCases)
@@ -47,11 +52,19 @@ class GeneralTab {
         table.addNewTable()
         table.addRow(language)
         table.addNewTable()
-        table.addRow(leftViews: [TableGroupView.makeText(NSLocalizedString("Updates policy", comment: ""))],
-            rightViews: [updatesPolicyDropdown!],
-            secondaryViews: [checkForUpdates],
-            secondaryViewsAlignment: .right,
-            secondaryViewsTopGap: 8)
+        if isLocalBuild {
+            let note = TableGroupView.makeText(NSLocalizedString("Official updates are unavailable in this local build.",
+                comment: "Settings note replacing the updates policy, shown only in a local source build"))
+            note.lineBreakMode = .byWordWrapping
+            note.maximumNumberOfLines = 0
+            table.addRow(leftViews: [note])
+        } else {
+            table.addRow(leftViews: [TableGroupView.makeText(NSLocalizedString("Updates policy", comment: ""))],
+                rightViews: [updatesPolicyDropdown!],
+                secondaryViews: [checkForUpdates],
+                secondaryViewsAlignment: .right,
+                secondaryViewsTopGap: 8)
+        }
         table.addRow(crashPolicy)
         let exportButton = NSButton(title: NSLocalizedString("Export settings…", comment: ""), target: nil, action: nil)
         exportButton.onAction = { _ in exportSettings() }
@@ -97,6 +110,8 @@ class GeneralTab {
     }
 
     @objc static func checkForUpdatesNow(_ sender: Any?) {
+        // A local build has no updater controller: nothing to start, nothing to check.
+        guard !LicenseManager.shared.localFeaturesEnabled else { return }
         // The updater is lazy-started 30s after launch; if the user presses this button before
         // then, defensively start it first (idempotent — second call is a no-op).
         App.updaterController?.startUpdater()

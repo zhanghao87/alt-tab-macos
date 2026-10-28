@@ -1087,3 +1087,21 @@
 
 /* No comment provided by engineer. */
 "Your settings reset every time AltTab restarts." = "Your settings reset every time AltTab restarts.";
+
+/* Local source build, not a purchased Pro license. */
+"Local build" = "Local build";
+
+/* Features included in the local source build. */
+"All features enabled" = "All features enabled";
+
+/* Local source build, not a purchased Pro license. */
+"Nothing to purchase or activate here: this build includes every feature." = "Nothing to purchase or activate here: this build includes every feature.";
+
+/* The local source build does not use the official update channel. */
+"Official updates are unavailable in this local build." = "Official updates are unavailable in this local build.";
+
+/* The local source build does not use the official update channel. */
+"Updates unavailable in local build" = "Updates unavailable in local build";
+
+/* Local source build, not a purchased Pro license. */
+"This build doesn't use license keys." = "This build doesn't use license keys.";

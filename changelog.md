@@ -1,3 +1,10 @@
+## Local changes (unreleased)
+
+* Add an isolated local full-feature build that stays enabled across restarts without license keys or a trial, identifies itself as a local build, and disables official licensing and automatic updates.
+* Add one-command Xcode developer packaging with a reusable signing certificate, checked translations and shortcut-control resources, and a self-contained ZIP, without requiring an installed official app or a Python packaging wrapper.
+* Fix local packages displaying English despite selecting another language, and translate local-build status and update notices into all supported languages.
+* Fix developer builds quitting when opening Settings by keeping ShortcutRecorder's resource bundle identity separate from the app, and check resources under the app's actual identity during packaging.
+
 ## [11.10.1](https://github.com/lwouis/alt-tab-macos/compare/v11.10.0...v11.10.1) (2026-10-23)
 
 

@@ -21,7 +21,9 @@ class ProTransitionScheduler {
 
     /// Fire now if a missed wake-up was persisted, then schedule the next one.
     func onAppLaunchComplete() {
-        guard licenseManager.state != .trialNotStarted, !state.onboardingInProgress else { cancel(); return }
+        // A local full-feature build is entitled for good: it never runs the promotional schedule.
+        guard licenseManager.state != .local, licenseManager.state != .trialNotStarted,
+              !state.onboardingInProgress else { cancel(); return }
         let saved = defaults.double(forKey: Self.nextScheduledDateKey)
         if saved > 0 && Date(timeIntervalSince1970: saved) <= licenseManager.clock.now {
             fire()
@@ -63,7 +65,9 @@ class ProTransitionScheduler {
 
     /// Compute the next date when a time-based prompt should fire.
     func computeNextFireDate() -> Date? {
+        // Pro and local builds are both entitled for good: no welcome letter, no badge, no expiry.
         if case .pro = licenseManager.state { return nil }
+        if case .local = licenseManager.state { return nil }
         if state.onboardingInProgress { return nil }
         guard let start = licenseManager.trialStartDate else { return nil }
         // Welcome is immediate; the badge and expiry deadlines remain independent of promotional prompts.

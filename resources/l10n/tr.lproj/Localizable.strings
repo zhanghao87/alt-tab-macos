@@ -361,3 +361,9 @@
 "Your feedback will be submitted as a public GitHub issue." = "Geri bildiriminiz herkese açık bir GitHub konusu olarak gönderilecek.";
 "Your Pro trial starts when AltTab is ready" = "Pro denemeniz AltTab hazır olduğunda başlar";
 "Your settings reset every time AltTab restarts." = "Ayarların her AltTab yeniden başlatıldığında sıfırlanıyor.";
+"Local build" = "Yerel derleme";
+"All features enabled" = "Tüm özellikler etkin";
+"Nothing to purchase or activate here: this build includes every feature." = "Burada satın alınacak veya etkinleştirilecek bir şey yok: bu derleme tüm özellikleri içeriyor.";
+"Official updates are unavailable in this local build." = "Resmî güncellemeler bu yerel derlemede kullanılamaz.";
+"Updates unavailable in local build" = "Yerel derlemede güncellemeler kullanılamıyor";
+"This build doesn't use license keys." = "Bu derleme lisans anahtarı kullanmıyor.";

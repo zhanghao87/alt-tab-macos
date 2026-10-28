@@ -146,6 +146,23 @@ class App: AppCenterApplication {
         GeneralTab.checkForUpdatesNow(sender)
     }
 
+    /// Builds the Sparkle updater and starts it 30s after launch. Only official builds do this:
+    /// a local build has no updater controller at all, so every manual update path is a no-op.
+    private static func startOfficialUpdater() {
+        App.sparkleDelegate = SparkleDelegate()
+        App.updaterController = SPUStandardUpdaterController(
+            startingUpdater: false,
+            updaterDelegate: App.sparkleDelegate!,
+            userDriverDelegate: nil)
+        #if DEBUG
+        if !Preferences.qaPristine && !QaLifecycle.enabled {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 30) { App.updaterController?.startUpdater() }
+        }
+        #else
+        DispatchQueue.main.asyncAfter(deadline: .now() + 30) { App.updaterController?.startUpdater() }
+        #endif
+    }
+
     // periphery:ignore:parameters sender - NSMenuItem target/action signature
     @objc static func checkPermissions(_ sender: NSMenuItem) {
         showPermissionsWindow()
@@ -156,10 +173,13 @@ class App: AppCenterApplication {
     }
 
     @objc static func upgradeToPro() {
+        // A local build already has every feature: there is nothing to buy.
+        guard !LicenseManager.shared.localFeaturesEnabled else { return }
         ProTransitionManager.openCheckout(from: .menubar)
     }
 
     @objc static func openAccount() {
+        guard !LicenseManager.shared.localFeaturesEnabled else { return }
         UpgradeTab.openAccountPage()
     }
 
@@ -572,18 +592,14 @@ class App: AppCenterApplication {
         // Needs the AX runloop `BackgroundWork.start()` created, so it cannot go with the launch-time setup.
         AxObserverRegistry.shared.startRecoveryTicks()
         CliEvents.observe()
-        App.sparkleDelegate = SparkleDelegate()
-        App.updaterController = SPUStandardUpdaterController(
-            startingUpdater: false,
-            updaterDelegate: App.sparkleDelegate!,
-            userDriverDelegate: nil)
-        #if DEBUG
-        if !Preferences.qaPristine && !QaLifecycle.enabled {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 30) { App.updaterController?.startUpdater() }
+        // Official updates are off in a local build: the appcast is the official one, and updating
+        // would replace the local build with the official binary (and its licensing). Nothing is
+        // constructed here, so no updater controller exists to start or to call.
+        if LicenseManager.shared.localFeaturesEnabled {
+            Logger.info { "Local build: official updater disabled" }
+        } else {
+            startOfficialUpdater()
         }
-        #else
-        DispatchQueue.main.asyncAfter(deadline: .now() + 30) { App.updaterController?.startUpdater() }
-        #endif
         PreferencesEvents.initialize()
         #if DEBUG
         BenchmarkRunner.startIfNeeded()
@@ -598,8 +614,12 @@ class App: AppCenterApplication {
         #if DEBUG
         if !QAMenu.suppressed {
             QAMenu.shared = QAMenu()
-            QAMenu.shared?.orderFront(nil)
-            if QAMenu.openSettingsOnLaunch { App.showSettingsWindow() }
+            // A local full-feature build is a daily-use app: the QA panel is not opened on top of it.
+            // The panel is still created, so the middle-click toggle and the `--qa-*` CLI keep working.
+            if !LicenseManager.shared.localFeaturesEnabled {
+                QAMenu.shared?.orderFront(nil)
+                if QAMenu.openSettingsOnLaunch { App.showSettingsWindow() }
+            }
             if QAMenu.graphEnabled { DebugMenu.setEnabled(true) }
         }
         #endif
@@ -706,6 +726,12 @@ extension App: NSApplicationDelegate {
     }
 
     private func handleCustomUrl(_ url: URL) {
+        // A local build has no license to activate: the activation URL must not reach the
+        // licensing API or the keychain.
+        guard !LicenseManager.shared.localFeaturesEnabled else {
+            Logger.info { "Local build: ignoring activation URL" }
+            return
+        }
         guard url.host == "activate",
               let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               let licenseKey = components.queryItems?.first(where: { $0.name == "license_key" })?.value,

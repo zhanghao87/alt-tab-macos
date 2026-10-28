@@ -200,14 +200,15 @@ class ProTransitionManager {
     }
 
     func onLicenseStateChanged() {
-        if case .pro = licenseManager.state {
-            scheduler.cancel()
-            deferredPrompt?.cancel()
-            deferredPrompt = nil
-            pendingDismissAction = nil
-            isFreePassSessionActive = false
-            emit(.dismissAllProWindows)
-            emit(.refreshBadge)
+        switch licenseManager.state {
+        case .pro:
+            cancelPromotionalFlow(dismissWindows: true)
+        case .local:
+            // A local full-feature build is entitled like Pro, so the promotional flow stops here too —
+            // but nothing was purchased, so no purchase-flavored window is dismissed.
+            cancelPromotionalFlow(dismissWindows: false)
+        default:
+            break
         }
         // Snapshot + downgrade any degradable Pro selections as soon as the license locks. Idempotent:
         // second entry is a no-op because stored is already the Free equivalent.
@@ -215,6 +216,19 @@ class ProTransitionManager {
             onProLockEngaged()
         }
         if launchCompleted { scheduler.scheduleNext() }
+    }
+
+    /// Stop every scheduled and pending promotional step: the timed scheduler, the deferred prompt
+    /// and the queued announcement. `dismissWindows` also closes an already visible Pro window, which
+    /// only makes sense after a purchase.
+    private func cancelPromotionalFlow(dismissWindows: Bool) {
+        scheduler.cancel()
+        deferredPrompt?.cancel()
+        deferredPrompt = nil
+        pendingDismissAction = nil
+        isFreePassSessionActive = false
+        if dismissWindows { emit(.dismissAllProWindows) }
+        emit(.refreshBadge)
     }
 
     // MARK: - Hard-gate flow
@@ -260,7 +274,7 @@ class ProTransitionManager {
             if case .showDay4Tour = action { state.day4TourDeferred = true }
             return
         }
-        if case .pro = licenseManager.state { return }
+        if licenseManager.state.isFullyEntitled { return }
         switch action {
         case let .showFullUpgrade(feature): showFullUpgradeWindow(for: feature)
         case .showDay4Tour:

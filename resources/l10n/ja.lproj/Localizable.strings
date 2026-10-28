@@ -361,3 +361,9 @@
 "Your feedback will be submitted as a public GitHub issue." = "フィードバックは公開の GitHub Issue として送信されます。";
 "Your Pro trial starts when AltTab is ready" = "AltTabが使えるようになるとProの試用期間が始まります";
 "Your settings reset every time AltTab restarts." = "AltTab を再起動するたびに設定がリセットされます。";
+"Local build" = "ローカルビルド";
+"All features enabled" = "すべての機能が有効";
+"Nothing to purchase or activate here: this build includes every feature." = "ここで購入やアクティベーションは不要です。このビルドにはすべての機能が含まれています。";
+"Official updates are unavailable in this local build." = "このローカルビルドでは公式アップデートを利用できません。";
+"Updates unavailable in local build" = "ローカルビルドではアップデートを利用できません";
+"This build doesn't use license keys." = "このビルドではライセンスキーを使用しません。";

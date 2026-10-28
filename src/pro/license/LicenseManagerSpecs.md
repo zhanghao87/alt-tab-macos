@@ -40,6 +40,17 @@ Its collaborators are injected so the logic is testable without real I/O — the
 - **QA license states are in-memory overlays.** `mockProUser()` and `mockTrialDay()` are `#if DEBUG` only and never read, clear, or write the user's Keychain and license defaults. Refreshing state keeps the overlay until relaunch; a mocked trial still follows the clock, so it expires like a real one.
 - **A running app notices the end of the trial.** `state` follows the clock only on `refreshState()`. `trialEndedSinceLastRefresh` tells the Pro-transition coordinator that a `.trial` state has outlived `trialEndDate`, so it can refresh at a quiet moment (`ProTransitionSpecs.md`).
 
+### Local full-feature build (`.local`)
+
+A separate build channel, not a license state a user can reach. The app is compiled with `LOCAL_FULL_FEATURES`, which makes `LicenseManager.isLocalBuild` true; the instance flag `localFeaturesEnabled` (injected, defaulting to that build-channel value) selects the behavior. The released app never defines the flag, so its behavior is unchanged.
+
+- **`.local` is a state of its own.** It is not `.pro`: nothing was purchased, no license key exists, and no account is involved. `debugProfileLabel` reads “Local build”; `appcastTier` is empty, so the update feed never sees a purchase tier.
+- **Entitled from the first launch.** The manager starts in `.local` — not `.trialNotStarted` — so there is no setup phase, no trial clock and no purchase prompt. `isProAvailable` is true, `isProLocked` is false (stored Pro preferences are never downgraded), `customerEmail` is nil, `isLifetimeVariant` is false.
+- **No storage, no network.** A local build never reads or writes the license Keychain: `computeState()`, `customerEmail`, `isLifetimeVariant` and `trialStartDate` answer from the build channel alone. It never starts a trial (`trialStartDate` is never written) and never revalidates (`scheduleAsyncRevalidationIfNeeded` and `revalidateWithServer` do nothing).
+- **Licensing operations are refused, not faked.** `activate`, `deactivate` and `deactivateInstance` fail with `LicenseAPIError.localBuild` and touch neither the Keychain nor the licensing backend. No completion reports a fake activation.
+- **The state cannot be downgraded.** `refreshState()`, a revalidation and the DEBUG QA overlays (`mockTrialDay`, `mockProUser`) all leave a local build in `.local`. A persisted expired trial or invalidated license from another install is ignored.
+- **Isolation from the released app.** The shared factory refuses to run a local build under the official bundle identifier `com.lwouis.alt-tab-macos`, because it would share the user's license Keychain service and license defaults. The local build ships under an isolated `.developer` identifier.
+
 ---
 
 ## Test scenarios
@@ -110,6 +121,15 @@ Mirrors `LicenseManagerTests.swift` 1:1. Each test uses an isolated `UserDefault
 - **testTrialDay_isNilWithoutTrial** — no `trialStartDate` → `trialDay` is nil, never a guessed day.
 - **testTrialDay_isOneIndexed** — the start day is day 1, 34 days later is day 35, 99 days later is day 100.
 - **testTrialDay_isNilWhenClockIsBeforeTrialStart** — a clock set before the trial start → nil.
+
+### J. Local full-feature build
+- **testLocalBuildStartsEntitledWithoutAnySavedKey** — a local manager starts in `.local` with Pro available, nothing locked, and no email, trial date, trial day or lifetime variant.
+- **testLocalBuildNeverStartsOrReadsATrial** — reaching the usable milestone writes no trial timestamp, leaves the state `.local` and reads/writes the Keychain zero times.
+- **testLocalBuildStaysLocalAcrossClockJumpAndRecreation** — a year of clock advance, a refresh and a relaunch on the same storage all stay `.local`, with no trial timestamp anywhere.
+- **testLocalBuildIsolatedFromExpiredPersistedState** — a persisted expired trial and an invalidated license are ignored: the state stays `.local`, with no trial date, email or lifetime variant.
+- **testLocalBuildRefusesLicenseOperationsWithoutSideEffects** — `activate`, `deactivate` and `deactivateInstance` each fail with `LicenseAPIError.localBuild`; the backend is never called and the Keychain is never read or written.
+- **testLocalBuildDoesNotRevalidateWithTheServer** — a stale validation timestamp schedules no request.
+- **testLocalBuildIgnoresQaLicenseOverrides** *(DEBUG only)* — `mockTrialDay` and `mockProUser` leave the state `.local` and touch no storage.
 
 ## Team licenses
 

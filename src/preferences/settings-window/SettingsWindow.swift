@@ -167,6 +167,17 @@ final class UpgradeButton: ProGradientButton {
     func refreshTitle() {
         wrappedWidth = bounds.width
         let state = LicenseManager.shared.state
+        if LicenseManager.shared.localFeaturesEnabled {
+            // A local build is not a purchase: no trial, no activation, no customer email.
+            toolTip = nil
+            applyTitle(
+                secondary: NSLocalizedString("All features enabled",
+                    comment: "Settings sidebar subtitle. This is a local source build, not a purchased license."),
+                main: Self.attributed(NSLocalizedString("Local build",
+                    comment: "Settings sidebar title. This is a local source build, not a purchased license."), Self.mainFont),
+                height: Self.twoLineHeight)
+            return
+        }
         if state == .trialNotStarted {
             toolTip = ProFeatureCopy.trialSetup
             applyTitle(secondary: nil, main: Self.attributed("Pro", Self.mainFont), height: Self.oneLineHeight)
@@ -1262,6 +1273,8 @@ extension SettingsWindow: NSWindowDelegate {
         }
         guard !hasPlayedShine else { return }
         hasPlayedShine = true
+        // The shine is a nudge to buy; a local build has nothing to buy.
+        guard !LicenseManager.shared.localFeaturesEnabled else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
             self?.upgradeButton.playShineAnimation()
         }

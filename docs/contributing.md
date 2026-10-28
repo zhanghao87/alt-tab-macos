@@ -8,8 +8,99 @@ This document gives a technical overview of the project, for newcomers who want 
 
 This project has minimal dependency on Xcode-only features (e.g. InterfaceBuilder, Playgrounds). You can build it by doing:
 
-* `scripts/codesign/setup_local.sh` to generate a local self-signed certificate, to avoid having to re-check the `System Preferences > Security & Privacy` permissions on every build
+* Set up a local code-signing certificate once, then reuse it for subsequent builds. See [Stable local signing and macOS permissions](#stable-local-signing-and-macos-permissions); do not regenerate the certificate before every build.
 * Either open `alt-tab-macos.xcodeproj` with Xcode, or use the CLI: `xcodebuild -project alt-tab-macos.xcodeproj -scheme Debug` to build the .app with the `Debug` build configuration
+
+### Isolated local full-feature build
+
+Run this single command from the project root:
+
+```bash
+bash ai/build-local.sh
+```
+
+The Bash entrypoint uses the project's **Debug** scheme with `xcodebuild`, not the Xcode GUI or
+a Python packaging wrapper. It builds a separate **AltTab (Developer)** app with
+`LOCAL_FULL_FEATURES`. The app grants every feature through an explicit `.local` state, not a
+purchased Pro license or a persisted QA override. It does not start a trial, read or write license
+keys, activate/deactivate licenses, revalidate with the licensing server, or run the official
+updater. Settings identifies it as **Local build / All features enabled**. Ordinary builds without
+this flag retain normal licensing.
+
+Outputs:
+
+* `DerivedData/XcodeLocal/AltTab (Developer).app`
+* `DerivedData/XcodeLocal/AltTab-Developer-xcode.zip`
+
+The script does not install or modify any application. The bundle identifier is
+`com.lwouis.alt-tab-macos.developer`; preferences, URL scheme and license storage are separate from
+the official app. Local builds refuse to run with the official bundle identifier.
+
+#### Xcode and resource handling
+
+Full Xcode and its macOS build components must be installed and ready to use. The script respects
+`DEVELOPER_DIR`; otherwise it uses the selected full Xcode, falling back to
+`/Applications/Xcode.app/Contents/Developer` when the system selection is Command Line Tools.
+This selection only affects the script process, not the global `xcode-select` setting.
+
+Xcode builds the project and vendored packages and compiles their resource catalogs. No installed
+official app is needed as a resource donor. Before packaging, the script removes the Debug
+executable's build-tree framework search paths so the portable app uses its embedded frameworks.
+
+The app-only `ALTTAB_BUNDLE_IDENTIFIER` setting selects the developer identity. Do not pass
+`PRODUCT_BUNDLE_IDENTIFIER` on the `xcodebuild` command line: it also overrides Swift package resource
+bundle IDs. Giving ShortcutRecorder's resource bundle the app's ID makes AppKit fail to resolve its
+compiled assets (`Missing sr-mojave-info` when opening Settings). Resource probes deliberately use
+the same main-bundle ID as the packaged app so this collision fails packaging rather than escaping
+as a Settings crash.
+
+Language selection uses the packaged `.lproj` directories, including local-build status and update
+notices. The root `resources/l10n/Localizable.strings` is extraction input, not an app resource:
+shipping it at the Resources root overrides the selected language with English. Packaging rejects
+that file. Temporary native Swift probes check every translated app string in each supported
+language and verify compiled ShortcutRecorder images and style data. The ZIP is unpacked and its
+nested signatures, developer bundle identifier and selected signing certificate are verified
+before the final output files are replaced.
+
+On SDKs older than macOS 26, the script defines `LEGACY_MACOS_SDK` and uses the existing
+NSVisualEffectView, large search field and sample-buffer capture paths. These builds do not include
+Liquid Glass or the macOS 26 screenshot API; prefer an up-to-date SDK when building for macOS 26.
+
+#### Stable local signing and macOS permissions
+
+The default identity is **AltTab Local Development**, the long-lived local certificate used for
+this workflow. It and its matching private key must exist in your Keychain and appear as a valid
+code-signing identity. The script fails before building if the selection is missing or ambiguous;
+it never silently falls back to ad-hoc signing.
+
+Check available identities or select another existing certificate by name or its SHA-1 fingerprint:
+
+```bash
+security find-identity -v -p codesigning
+LOCAL_CODESIGN_IDENTITY="Your existing signing identity" bash ai/build-local.sh
+```
+
+Trust a local self-signed certificate for code signing in your user account; no paid Apple developer
+account is required for local use. Keep the same certificate and private key; never commit private
+keys, PKCS#12 exports, or their passwords. Do not run `scripts/codesign/setup_local.sh` before every
+build: it generates a new private key and certificate each time, and its generation command does
+not request a long validity period. Recreating a certificate with the same name does not preserve
+its identity. The builder itself never creates certificates or changes Keychains.
+
+Ad-hoc signatures depend on the current code hash, so rebuilding changed code can invalidate macOS
+Accessibility/Screen Recording authorization. Reusing the same certificate allows the designated
+requirement to remain stable across code changes. Keep the developer bundle identifier and the
+installation path `/Applications/AltTab (Developer).app` unchanged as well.
+
+Switching from ad-hoc signing to this certificate can require permission to be granted once again.
+Reusing the certificate avoids this code-identity change on subsequent builds, but does not
+guarantee macOS will never ask again. Self-signed builds are not Apple-notarized distribution builds.
+A local self-signed certificate may have no Apple Team ID; do not change the official app's signing
+identity or bundle identifier to work around it.
+
+Packaging does not install the app: quit the developer app before replacing its bundle. Keep the
+official app in place and install only the separately named developer app. This local build does
+not create an official transferable license and must be rebuilt manually for source updates.
 
 ## Mac development
 
@@ -27,7 +118,7 @@ OS APIs are quite limited for the kind of low-level, system-wide app AltTab is. 
 
 To mitigate the issues listed above, we took some measures.
 
-We minimize reliance on XCode, InterfaceBuilder, Playground, and other GUI tools. You can’t cut the dependency completely though as only XCode can build macOS apps. The whole UI, including the menubar, is built in code (no xib). Currently, the project has these files:
+The project uses Xcode to compile dependency resources and assemble the app, including the local developer build above. The app's own UI is built in code. Currently, the project has these files:
 
 * `alt-tab-macos.xcodeproj` file describing AltTab itself. It contains some settings for the app
 * `alt_tab_macos.entitlements` and `Info.plist` which are static files describing some app config for XCode

@@ -72,6 +72,16 @@ final class ProJourneyView: NSStackView {
         let license = LicenseManager.shared
         let status: String
         let message: String
+        if LicenseManager.shared.localFeaturesEnabled {
+            // A local build has no license and no account: no customer email, no activation claim.
+            view.update(
+                title: NSLocalizedString("Local build",
+                    comment: "Pro journey bubble title. This is a local source build, not a purchased license."),
+                message: NSLocalizedString("All features enabled",
+                    comment: "Pro journey bubble subtitle. This is a local source build, not a purchased license."),
+                proGradient: false)
+            return
+        }
         switch license.state {
         case .trialNotStarted:
             status = ProFeatureCopy.trialSetup
@@ -91,6 +101,12 @@ final class ProJourneyView: NSStackView {
                 : NSLocalizedString("Pro license activated for %@", comment: "")
             status = String(format: format, license.customerEmail ?? "")
             message = NSLocalizedString("Unlimited access to all four Pro features", comment: "")
+        case .local:
+            // A local build has no license and no account: no customer email, no activation claim.
+            status = NSLocalizedString("Local build",
+                comment: "Pro journey bubble title. This is a local source build, not a purchased license.")
+            message = NSLocalizedString("All features enabled",
+                comment: "Pro journey bubble subtitle. This is a local source build, not a purchased license.")
         }
         view.update(title: status, message: message, proGradient: license.isProLocked)
     }

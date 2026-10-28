@@ -10,6 +10,7 @@ extension EffectView {
     func updateAppearance() { updateAppearance(cornerRadius: Appearance.windowCornerRadius) }
 }
 
+#if !LEGACY_MACOS_SDK
 @available(macOS 26.0, *)
 extension NSGlassEffectView: EffectView {
     func updateAppearance(cornerRadius: CGFloat) {
@@ -22,6 +23,7 @@ extension NSGlassEffectView: EffectView {
 
     var hostView: NSView { contentView! }
 }
+#endif
 
 class FrostedGlassEffectView: NSVisualEffectView, EffectView {
     var hostView: NSView { self }
@@ -67,18 +69,22 @@ enum LiquidGlass {
     private typealias SetVariantFn = @convention(c) (AnyObject, Selector, Int) -> Void
 
     static let canUsePrivateLook: Bool = {
+        #if !LEGACY_MACOS_SDK
         if #available(macOS 26.0, *) {
             return class_getInstanceMethod(object_getClass(NSGlassEffectView()), setVariantSelector) != nil
         }
+        #endif
         return false
     }()
 
+    #if !LEGACY_MACOS_SDK
     @available(macOS 26.0, *)
     static func applyClearVariant(_ view: NSGlassEffectView) {
         guard let method = class_getInstanceMethod(object_getClass(view), setVariantSelector) else { return }
         let f = unsafeBitCast(method_getImplementation(method), to: SetVariantFn.self)
         f(view, setVariantSelector, 3)
     }
+    #endif
 }
 
 enum EffectViewKind {
@@ -88,6 +94,7 @@ enum EffectViewKind {
 }
 
 func requiredEffectViewKind() -> EffectViewKind {
+    #if !LEGACY_MACOS_SDK
     if #available(macOS 26.0, *) {
         if Preferences.effectiveAppearanceStyle(SwitcherSession.activeShortcutIndex) == .appIcons,
            LiquidGlass.canUsePrivateLook {
@@ -95,9 +102,11 @@ func requiredEffectViewKind() -> EffectViewKind {
         }
         return .liquidGlassRegular
     }
+    #endif
     return .frosted
 }
 
+#if !LEGACY_MACOS_SDK
 @available(macOS 26.0, *)
 private func makeGlassEffectView(clear: Bool) -> NSGlassEffectView {
     let glass = NSGlassEffectView()
@@ -116,8 +125,10 @@ private func makeGlassEffectView(clear: Bool) -> NSGlassEffectView {
     glass.updateAppearance()
     return glass
 }
+#endif
 
 func makeEffectView(for kind: EffectViewKind) -> EffectView {
+    #if !LEGACY_MACOS_SDK
     if #available(macOS 26.0, *) {
         switch kind {
             case .liquidGlassClear:
@@ -134,5 +145,6 @@ func makeEffectView(for kind: EffectViewKind) -> EffectView {
                 break
         }
     }
+    #endif
     return FrostedGlassEffectView()
 }

@@ -361,3 +361,9 @@
 "Your feedback will be submitted as a public GitHub issue." = "Din feedback skickas in som ett offentligt GitHub-ärende.";
 "Your Pro trial starts when AltTab is ready" = "Din Pro-provperiod börjar när AltTab är redo";
 "Your settings reset every time AltTab restarts." = "Dina inställningar återställs varje gång AltTab startas om.";
+"Local build" = "Lokalt bygge";
+"All features enabled" = "Alla funktioner är aktiverade";
+"Nothing to purchase or activate here: this build includes every feature." = "Det finns inget att köpa eller aktivera här: det här bygget innehåller alla funktioner.";
+"Official updates are unavailable in this local build." = "Officiella uppdateringar är inte tillgängliga i det här lokala bygget.";
+"Updates unavailable in local build" = "Uppdateringar är inte tillgängliga i det lokala bygget";
+"This build doesn't use license keys." = "Det här bygget använder inga licensnycklar.";

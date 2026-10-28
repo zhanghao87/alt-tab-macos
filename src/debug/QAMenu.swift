@@ -24,6 +24,10 @@ final class QAMenu: NSPanel {
     /// instead.
     static var suppressed: Bool { QaLifecycle.enabled || CommandLine.arguments.contains("--qa-no-menu") }
 
+    /// A local full-feature build is a daily-use app, not a trial simulator: the trial journey
+    /// section (which drives the mocked trial states) has nothing to show there.
+    static var showsTrialJourney: Bool { !LicenseManager.shared.localFeaturesEnabled }
+
     static var graphEnabled: Bool {
         UserDefaults.standard.bool(forKey: graphEnabledKey)
     }
@@ -104,7 +108,7 @@ final class QAMenu: NSPanel {
         stack.addArrangedSubview(topRow)
         topRow.trailingAnchor.constraint(equalTo: stack.trailingAnchor, constant: -stack.edgeInsets.right).isActive = true
         stack.addArrangedSubview(row([langDropdown, graphCheckbox]))
-        addTrialSection()
+        if Self.showsTrialJourney { addTrialSection() }
     }
 
     /// Wipe every UserDefaults suite the app uses plus every keychain entry under the license service,

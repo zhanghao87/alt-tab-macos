@@ -73,10 +73,13 @@ class ProTransitionState {
     /// Assemble a `ProTransitionManagerTestable.State` for the pure decision logic.
     func snapshot(licenseState: LicenseState, daysSinceTrialStart: Int, clock: Clock) -> ProTransitionManagerTestable.State {
         let now = clock.now
+        // A local full-feature build is entitled for good: it takes the Pro branch of every decision
+        // (no welcome letter, no upgrade prompts, no badge) without ever being an active trial.
+        let isLocal = licenseState == .local
         return ProTransitionManagerTestable.State(
             isAwaitingTrial: licenseState == .trialNotStarted,
-            isPro: { if case .pro = licenseState { return true }; return false }(),
-            isTrialActive: licenseState.isProAvailable,
+            isPro: isLocal || { if case .pro = licenseState { return true }; return false }(),
+            isTrialActive: isLocal ? false : licenseState.isProAvailable,
             daysSinceTrialStart: daysSinceTrialStart,
             hasSeenWelcome: hasSeenWelcome,
             hasSeenDay4Tour: hasSeenDay4Tour,

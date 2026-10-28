@@ -361,3 +361,9 @@
 "Your feedback will be submitted as a public GitHub issue." = "피드백은 공개 GitHub 이슈로 제출됩니다.";
 "Your Pro trial starts when AltTab is ready" = "AltTab을 사용할 준비가 되면 Pro 체험이 시작됩니다";
 "Your settings reset every time AltTab restarts." = "AltTab을 다시 시작할 때마다 설정이 초기화됩니다.";
+"Local build" = "로컬 빌드";
+"All features enabled" = "모든 기능 활성화됨";
+"Nothing to purchase or activate here: this build includes every feature." = "여기서 구매하거나 활성화할 항목이 없습니다. 이 빌드에는 모든 기능이 포함되어 있습니다.";
+"Official updates are unavailable in this local build." = "이 로컬 빌드에서는 공식 업데이트를 사용할 수 없습니다.";
+"Updates unavailable in local build" = "로컬 빌드에서 업데이트 사용 불가";
+"This build doesn't use license keys." = "이 빌드에서는 라이선스 키를 사용하지 않습니다.";

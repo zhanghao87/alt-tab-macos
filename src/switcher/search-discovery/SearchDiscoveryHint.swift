@@ -215,6 +215,7 @@ final class SearchDiscoveryHint {
         switch license.state {
         case .trial: access = .trial(day: license.daysSinceTrialStart)
         case .pro: access = .pro
+        case .local: access = .pro
         case .trialNotStarted, .trialExpired, .proExpired: access = .locked
         }
         return SearchDiscoveryPolicy.Context(access: access,

@@ -232,6 +232,7 @@ enum QaTrial {
             case .trialExpired: return "trial ended"
             case .proExpired: return "license too old"
             case .pro: return "Pro"
+            case .local: return "local build"
         }
     }
 

@@ -15,7 +15,10 @@ final class LicenseManagerTests: XCTestCase {
         clock = MockClock(now: Date(timeIntervalSince1970: 1_700_000_000))
         keychain = MockKeychain()
         api = MockLicenseAPI()
-        manager = LicenseManager(clock: clock, keychain: keychain, api: api, defaults: defaults)
+        // The official behavior is asserted explicitly, so these tests describe the release build
+        // whatever compile flags the test target happens to define.
+        manager = LicenseManager(clock: clock, keychain: keychain, api: api, defaults: defaults,
+                                 localFeaturesEnabled: false)
     }
 
     override func tearDown() {
@@ -687,6 +690,149 @@ final class LicenseManagerTests: XCTestCase {
         XCTAssertNil(manager.trialDay)
     }
 
+    // MARK: - Local full-feature build
+
+    /// A local build is a build channel, not a state: it starts entitled, never buys anything and
+    /// never touches the license Keychain or the licensing backend.
+    private func makeLocalManager() -> LicenseManager {
+        LicenseManager(clock: clock, keychain: keychain, api: api, defaults: defaults,
+                        localFeaturesEnabled: true)
+    }
+
+    func testLocalBuildStartsEntitledWithoutAnySavedKey() {
+        let local = makeLocalManager()
+        local.initialize()
+        XCTAssertEqual(local.state, .local)
+        XCTAssertTrue(local.isProAvailable, "a local build has every Pro feature")
+        XCTAssertFalse(local.isProLocked, "a local build must never downgrade stored preferences")
+        XCTAssertNil(local.customerEmail)
+        XCTAssertNil(local.trialStartDate)
+        XCTAssertNil(local.trialEndDate)
+        XCTAssertNil(local.trialDay)
+        XCTAssertEqual(local.daysSinceTrialStart, 0)
+        XCTAssertFalse(local.isLifetimeVariant)
+        XCTAssertFalse(local.trialEndedSinceLastRefresh)
+    }
+
+    func testLocalBuildNeverStartsOrReadsATrial() {
+        let local = makeLocalManager()
+        local.initialize()
+        local.onAppBecameUsable(accessibility: .granted, screenRecording: .granted)
+        local.refreshState()
+        XCTAssertNil(defaults.object(forKey: "trialStartDate"), "a local build must not write a trial timestamp")
+        XCTAssertEqual(local.state, .local)
+        XCTAssertEqual(keychain.readCount, 0, "a local build must not read the license Keychain")
+        XCTAssertEqual(keychain.writeCount, 0)
+    }
+
+    func testLocalBuildStaysLocalAcrossClockJumpAndRecreation() {
+        let local = makeLocalManager()
+        local.initialize()
+        clock.advance(days: 365)
+        local.refreshState()
+        XCTAssertEqual(local.state, .local)
+        XCTAssertEqual(local.computeState(), .local)
+        // A relaunch with the same storage is still local: nothing was persisted to expire.
+        let relaunched = makeLocalManager()
+        relaunched.initialize()
+        XCTAssertEqual(relaunched.state, .local)
+        XCTAssertNil(relaunched.trialStartDate)
+        XCTAssertNil(defaults.object(forKey: "trialStartDate"))
+    }
+
+    func testLocalBuildIsolatedFromExpiredPersistedState() {
+        // Persisted state from an official install: an expired trial and an invalidated license.
+        setupTrial(daysAgo: 100)
+        setupActivatedLicense(variantId: "pro")
+        defaults.set(false, forKey: "lastValidationResult")
+        let storedDefaults = defaults.dictionaryRepresentation()
+        let local = makeLocalManager()
+        local.initialize()
+        XCTAssertEqual(local.state, .local, "persisted expiry must not downgrade a local build")
+        local.onAppBecameUsable(accessibility: .granted, screenRecording: .granted)
+        clock.advance(days: 30)
+        local.refreshState()
+        XCTAssertEqual(local.state, .local)
+        XCTAssertNil(local.trialStartDate, "a local build has no trial clock, saved or new")
+        XCTAssertNil(local.customerEmail)
+        XCTAssertFalse(local.isLifetimeVariant)
+        XCTAssertEqual(defaults.dictionaryRepresentation() as NSDictionary, storedDefaults as NSDictionary)
+    }
+
+    func testLocalBuildRefusesLicenseOperationsWithoutSideEffects() {
+        let local = makeLocalManager()
+        local.initialize()
+        let keychainReads = keychain.readCount
+        let keychainWrites = keychain.writeCount
+        let keychainRemovals = keychain.removeCount
+
+        let activated = expectation(description: "activate")
+        local.activate("KEY") { result in
+            guard case .failure(let error) = result, case LicenseAPIError.localBuild = error else {
+                XCTFail("a local build must refuse activation explicitly, got \(result)")
+                activated.fulfill()
+                return
+            }
+            activated.fulfill()
+        }
+        wait(for: [activated], timeout: 1)
+
+        let deactivated = expectation(description: "deactivate")
+        local.deactivate { result in
+            guard case .failure(let error) = result, case LicenseAPIError.localBuild = error else {
+                XCTFail("a local build must refuse deactivation explicitly, got \(result)")
+                deactivated.fulfill()
+                return
+            }
+            deactivated.fulfill()
+        }
+        wait(for: [deactivated], timeout: 1)
+
+        let deactivatedInstance = expectation(description: "deactivate instance")
+        local.deactivateInstance(licenseKey: "KEY", instanceId: "other") { result in
+            guard case .failure(let error) = result, case LicenseAPIError.localBuild = error else {
+                XCTFail("a local build must refuse remote deactivation explicitly, got \(result)")
+                deactivatedInstance.fulfill()
+                return
+            }
+            deactivatedInstance.fulfill()
+        }
+        wait(for: [deactivatedInstance], timeout: 1)
+
+        drainMainQueue()
+        XCTAssertTrue(api.activateCalls.isEmpty, "a local build must not call the licensing backend")
+        XCTAssertTrue(api.validateCalls.isEmpty)
+        XCTAssertTrue(api.deactivateCalls.isEmpty)
+        XCTAssertEqual(keychain.readCount, keychainReads, "a local build must not read the license Keychain")
+        XCTAssertEqual(keychain.writeCount, keychainWrites, "a local build must not write the license Keychain")
+        XCTAssertEqual(keychain.removeCount, keychainRemovals, "a local build must not delete license items")
+        XCTAssertEqual(local.state, .local)
+    }
+
+    func testLocalBuildDoesNotRevalidateWithTheServer() {
+        // A stale validation timestamp would schedule a revalidation for an official build.
+        defaults.set(clock.now.addingTimeInterval(-31 * 86400).timeIntervalSince1970, forKey: "lastValidation")
+        let local = makeLocalManager()
+        local.initialize()
+        drainMainQueue()
+        XCTAssertTrue(api.validateCalls.isEmpty, "a local build has no license to revalidate")
+        XCTAssertEqual(keychain.readCount, 0)
+    }
+
+    #if DEBUG
+    func testLocalBuildIgnoresQaLicenseOverrides() {
+        let local = makeLocalManager()
+        local.initialize()
+        local.mockTrialDay(4)
+        XCTAssertEqual(local.state, .local, "QA must not put a local build on a trial clock")
+        local.mockProUser()
+        XCTAssertEqual(local.state, .local, "QA must not claim a purchase for a local build")
+        XCTAssertFalse(local.isMocked)
+        XCTAssertEqual(keychain.readCount, 0)
+        XCTAssertEqual(keychain.writeCount, 0)
+    }
+    #endif
+
     // MARK: - Helpers
 
     private func setupTrial(daysAgo: Int) {
@@ -725,11 +871,20 @@ final class MockKeychain: Keychain {
     private var store: [String: String] = [:]
     var setValueStatus: (String) -> OSStatus = { _ in errSecSuccess }
     var removeStatus: (String) -> OSStatus = { _ in errSecSuccess }
+    /// Access counters: a build channel that must never touch the license Keychain can be asserted
+    /// on behavior alone, not on a source string.
+    private(set) var readCount = 0
+    private(set) var writeCount = 0
+    private(set) var removeCount = 0
 
-    func value(account: String) -> String? { store[account] }
+    func value(account: String) -> String? {
+        readCount += 1
+        return store[account]
+    }
 
     @discardableResult
     func setValue(_ value: String, account: String) -> OSStatus {
+        writeCount += 1
         let status = setValueStatus(account)
         if status == errSecSuccess { store[account] = value }
         return status
@@ -737,6 +892,7 @@ final class MockKeychain: Keychain {
 
     @discardableResult
     func remove(account: String) -> OSStatus {
+        removeCount += 1
         let status = removeStatus(account)
         if status == errSecSuccess { store.removeValue(forKey: account) }
         return status

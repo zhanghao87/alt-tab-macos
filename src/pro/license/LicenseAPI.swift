@@ -34,6 +34,9 @@ enum LicenseAPIError: LocalizedError {
     case invalidResponse(debugInfo: String)
     case apiError(String)
     case keychainWriteFailed(account: String, status: OSStatus)
+    /// The build channel has no licensing: a local full-feature build is entitled without a key,
+    /// so licensing operations are refused instead of silently pretending to succeed.
+    case localBuild
 
     var errorDescription: String? {
         switch self {
@@ -46,6 +49,8 @@ enum LicenseAPIError: LocalizedError {
         case .invalidResponse: return NSLocalizedString("Unexpected response from server.", comment: "")
         case .apiError(let message): return message
         case .keychainWriteFailed: return NSLocalizedString("Couldn't save your license to the macOS Keychain. Please share the details below with the developer.", comment: "")
+        case .localBuild: return NSLocalizedString("This build doesn't use license keys.",
+            comment: "Licensing error. This is a local source build that is entitled without a license key.")
         }
     }
 

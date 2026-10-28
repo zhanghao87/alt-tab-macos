@@ -361,3 +361,9 @@
 "Your feedback will be submitted as a public GitHub issue." = "המשוב שלך יוגש כ-issue ציבורי ב-GitHub.";
 "Your Pro trial starts when AltTab is ready" = "תקופת הניסיון של Pro מתחילה כאשר AltTab מוכן";
 "Your settings reset every time AltTab restarts." = "ההגדרות שלך מתאפסות בכל פעם ש‑AltTab מופעל מחדש.";
+"Local build" = "גרסה מקומית";
+"All features enabled" = "כל התכונות מופעלות";
+"Nothing to purchase or activate here: this build includes every feature." = "אין כאן מה לקנות או להפעיל: גרסה זו כוללת את כל התכונות.";
+"Official updates are unavailable in this local build." = "עדכונים רשמיים אינם זמינים בגרסה מקומית זו.";
+"Updates unavailable in local build" = "עדכונים אינם זמינים בגרסה המקומית";
+"This build doesn't use license keys." = "גרסה זו אינה משתמשת במפתחות רישיון.";

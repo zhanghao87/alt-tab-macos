@@ -1,6 +1,17 @@
 import Foundation
 
 class LicenseManager {
+    /// Build channel: a local full-feature build (compiled with `LOCAL_FULL_FEATURES`) unlocks every
+    /// Pro feature without a purchase. It is a build-time fact, not a runtime state: the official
+    /// release never defines the flag and therefore never behaves like a local build.
+    static let isLocalBuild: Bool = {
+        #if LOCAL_FULL_FEATURES
+        return true
+        #else
+        return false
+        #endif
+    }()
+
     static var keychainService: String {
         #if DEBUG
         if QaLifecycleEnvironment.enabled { return QaLifecycleEnvironment.namespace }
@@ -15,12 +26,20 @@ class LicenseManager {
     }
 
     static let shared: LicenseManager = {
+        // A local build must never share the released app's license storage. The local build ships
+        // with an isolated `.developer` bundle identifier; running under the official one would
+        // silently inherit the user's real Keychain service and license defaults, so refuse to start.
+        if isLocalBuild {
+            precondition(App.bundleIdentifier != "com.lwouis.alt-tab-macos",
+                         "A local full-feature build must not run under the official bundle identifier.")
+        }
         let keychain = SystemKeychain(service: keychainService)
         return LicenseManager(
             clock: SystemClock(),
             keychain: keychain,
             api: RemoteLicenseClient(baseUrl: Endpoints.licenseApiBaseUrl, keychain: keychain),
-            defaults: UserDefaults(suiteName: defaultsSuiteName)!
+            defaults: UserDefaults(suiteName: defaultsSuiteName)!,
+            localFeaturesEnabled: isLocalBuild
         )
     }()
 
@@ -42,6 +61,11 @@ class LicenseManager {
     let api: LicenseAPI
     let defaults: UserDefaults
 
+    /// True when this manager runs in a local full-feature build: every Pro feature is unlocked
+    /// without a purchase, a license key or a trial. Injected so tests can exercise the local
+    /// contract without the compile-time flag.
+    let localFeaturesEnabled: Bool
+
     /// Called whenever `state` changes (including the initial `initialize()` assignment).
     /// Production wires this up in App.swift to refresh Menubar, sync Sparkle cookie, and notify ProTransitionManager.
     /// Tests leave it unset to avoid side effects.
@@ -60,7 +84,7 @@ class LicenseManager {
 
     private var appIsUsable = false
 
-    private(set) var state: LicenseState = .trialNotStarted {
+    private(set) var state: LicenseState {
         didSet { onStateChanged?(state) }
     }
 
@@ -72,6 +96,7 @@ class LicenseManager {
     #endif
 
     var customerEmail: String? {
+        if localFeaturesEnabled { return nil }
         #if DEBUG
         if hasMockedLicense { return mockedCustomerEmail }
         #endif
@@ -79,6 +104,7 @@ class LicenseManager {
     }
 
     var isLifetimeVariant: Bool {
+        if localFeaturesEnabled { return false }
         #if DEBUG
         if hasMockedLicense { return mockedVariant.map(Self.lifetimeVariants.contains) ?? false }
         #endif
@@ -101,12 +127,13 @@ class LicenseManager {
     /// `ProTransitionManager.onProLockEngaged()`, wired to the state-change hook in App.swift.
     var isProLocked: Bool {
         switch state {
-        case .trialNotStarted, .pro, .trial: return false
+        case .trialNotStarted, .pro, .trial, .local: return false
         case .proExpired, .trialExpired: return true
         }
     }
 
     var trialStartDate: Date? {
+        if localFeaturesEnabled { return nil }
         #if DEBUG
         if hasMockedLicense { return mockedTrialStartDate }
         #endif
@@ -137,11 +164,15 @@ class LicenseManager {
         return clock.now >= trialEndDate
     }
 
-    init(clock: Clock, keychain: Keychain, api: LicenseAPI, defaults: UserDefaults) {
+    init(clock: Clock, keychain: Keychain, api: LicenseAPI, defaults: UserDefaults,
+         localFeaturesEnabled: Bool = LicenseManager.isLocalBuild) {
         self.clock = clock
         self.keychain = keychain
         self.api = api
         self.defaults = defaults
+        self.localFeaturesEnabled = localFeaturesEnabled
+        // A local full-feature build is entitled from the start: no setup, no trial, no purchase.
+        self.state = localFeaturesEnabled ? .local : .trialNotStarted
     }
 
     func initialize() {
@@ -166,6 +197,7 @@ class LicenseManager {
     }
 
     private func startTrialIfNeeded() {
+        guard !localFeaturesEnabled else { return }
         guard appIsUsable, !isMocked, defaults.object(forKey: "trialStartDate") == nil,
               keychain.value(account: Self.keychainKeyAccount) == nil else { return }
         defaults.set(clock.now.timeIntervalSince1970, forKey: "trialStartDate")
@@ -175,6 +207,12 @@ class LicenseManager {
     var onActivationSucceeded: () -> Void = {}
 
     func activate(_ licenseKey: String, completion: @escaping (Result<Void, Error>) -> Void) {
+        // A local build is already fully entitled and has no license to buy: no API call, no Keychain
+        // write, and an explicit error rather than a fake activation success.
+        guard !localFeaturesEnabled else {
+            completion(.failure(LicenseAPIError.localBuild))
+            return
+        }
         api.activate(licenseKey) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
@@ -218,6 +256,10 @@ class LicenseManager {
     }
 
     func deactivate(completion: @escaping (Result<Void, Error>) -> Void) {
+        guard !localFeaturesEnabled else {
+            completion(.failure(LicenseAPIError.localBuild))
+            return
+        }
         guard let licenseKey = keychain.value(account: Self.keychainKeyAccount),
               let instanceId = keychain.value(account: Self.keychainInstanceAccount) else {
             completion(.failure(LicenseAPIError.invalidKey))
@@ -247,12 +289,19 @@ class LicenseManager {
     /// Remote-deactivate a specific instance that isn't this machine — used to reclaim a seat
     /// before re-running activation. Does not touch local keychain/UserDefaults state.
     func deactivateInstance(licenseKey: String, instanceId: String, completion: @escaping (Result<Void, Error>) -> Void) {
+        guard !localFeaturesEnabled else {
+            completion(.failure(LicenseAPIError.localBuild))
+            return
+        }
         api.deactivate(licenseKey, instanceId: instanceId) { result in
             DispatchQueue.main.async { completion(result) }
         }
     }
 
     func computeState() -> LicenseState {
+        // A local build ignores any persisted license or trial: it is entitled from the start, and
+        // it must not read the Keychain or the license defaults to decide that.
+        if localFeaturesEnabled { return .local }
         #if DEBUG
         if hasMockedLicense { return mockedTrialStartDate.map(trialState) ?? state }
         #endif
@@ -283,6 +332,8 @@ class LicenseManager {
     }
 
     func scheduleAsyncRevalidationIfNeeded() {
+        // A local build has no license to revalidate: no Keychain read, no request.
+        guard !localFeaturesEnabled else { return }
         let lastValidation = defaults.double(forKey: "lastValidation")
         let elapsed = clock.now.timeIntervalSince1970 - lastValidation
         guard elapsed >= Self.revalidationInterval else { return }
@@ -290,6 +341,7 @@ class LicenseManager {
     }
 
     func revalidateWithServer() {
+        guard !localFeaturesEnabled else { return }
         guard let licenseKey = keychain.value(account: Self.keychainKeyAccount),
               let instanceId = keychain.value(account: Self.keychainInstanceAccount) else { return }
         api.validate(licenseKey, instanceId: instanceId) { [weak self] result in
@@ -318,6 +370,8 @@ class LicenseManager {
     /// `day` is 1-based: day 1 is the day the trial started. The mocked trial then follows `clock` on
     /// `refreshState()`, like a real one.
     func mockTrialDay(_ day: Int) {
+        // A local build is already fully entitled: a QA overlay must not put it on a trial clock.
+        guard !localFeaturesEnabled else { return }
         hasMockedLicense = true
         mockedTrialStartDate = clock.now.addingTimeInterval(-Double(day - 1) * 86400)
         mockedCustomerEmail = nil
@@ -326,6 +380,8 @@ class LicenseManager {
     }
 
     func mockProUser() {
+        // A local build is not a purchase: QA must not claim one either.
+        guard !localFeaturesEnabled else { return }
         hasMockedLicense = true
         mockedTrialStartDate = nil
         mockedCustomerEmail = "john@cool-software.com"

@@ -7,6 +7,8 @@ class UserDefaultsEvents: NSObject {
 
     static func observe() {
         guard !isObserving else { return }
+        // A local build has no Sparkle updater, so there is nothing to observe or to write back.
+        guard !LicenseManager.shared.localFeaturesEnabled else { return }
         isObserving = true
         UserDefaults.standard.addObserver(policyObserver, forKeyPath: "SUAutomaticallyUpdate", options: [.initial, .new], context: nil)
         UserDefaults.standard.addObserver(policyObserver, forKeyPath: "SUEnableAutomaticChecks", options: [.initial, .new], context: nil)
